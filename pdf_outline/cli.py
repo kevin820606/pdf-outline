@@ -18,7 +18,6 @@ from pdf_outline.outline import set_toc as set_toc_outline
 from pdf_outline.titles import slugify_title
 
 app = typer.Typer(
-    add_completion=False,
     help="Merge PDFs in CLI order and generate outline titles from filenames.",
 )
 
