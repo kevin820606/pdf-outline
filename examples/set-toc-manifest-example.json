@@ -1,0 +1,50 @@
+[
+  {
+    "level": 1,
+    "title": "Part I: Getting Started",
+    "start_page": 1,
+    "index": 1
+  },
+  {
+    "level": 2,
+    "title": "Chapter 1: Installation",
+    "start_page": 2,
+    "index": null
+  },
+  {
+    "level": 2,
+    "title": "Chapter 2: Configuration",
+    "start_page": 5,
+    "index": null
+  },
+  {
+    "level": 1,
+    "title": "Part II: Advanced Topics",
+    "start_page": 10,
+    "index": 2
+  },
+  {
+    "level": 2,
+    "title": "Chapter 3: Customization",
+    "start_page": 11,
+    "index": null
+  },
+  {
+    "level": 3,
+    "title": "Themes",
+    "start_page": 12,
+    "index": null
+  },
+  {
+    "level": 3,
+    "title": "Plugins",
+    "start_page": 15,
+    "index": null
+  },
+  {
+    "level": 1,
+    "title": "Appendix",
+    "start_page": 20,
+    "index": 3
+  }
+]
