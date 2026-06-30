@@ -146,6 +146,18 @@ class TestOutline(unittest.TestCase):
             self.assertEqual(extracted[0].title, "New")
             self.assertEqual(extracted[0].index, 1)
 
+    def test_set_toc_rejects_missing_parent_level(self):
+        with TemporaryDirectory() as tmpdir:
+            pdf_path = Path(tmpdir) / "test.pdf"
+            pdf = Pdf.new()
+            pdf.add_blank_page()
+            pdf.save(pdf_path)
+
+            entries = [ManifestEntry(level=2, title="Orphan", start_page=1)]
+
+            with self.assertRaisesRegex(ValueError, "has no level 1 parent"):
+                set_toc(pdf_path, entries)
+
 
 if __name__ == "__main__":
     unittest.main()

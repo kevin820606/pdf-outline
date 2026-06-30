@@ -4,7 +4,7 @@ from typing import Any
 
 from pikepdf import Array, Name, OutlineItem, Pdf
 
-from pdf_outline.manifest import ManifestEntry
+from pdf_outline.manifest import ManifestEntry, validate_manifest_levels
 
 
 def _resolve_page_number(
@@ -116,6 +116,8 @@ def set_toc(
 ) -> None:
     """Set the TOC in a PDF to the given entries."""
     output_path = output_path or pdf_path
+    entries_list = list(entries)
+    validate_manifest_levels(entries_list)
 
     with Pdf.open(pdf_path, allow_overwriting_input=True) as pdf:
         with pdf.open_outline() as outline:
@@ -126,7 +128,7 @@ def set_toc(
             # stack[0] is outline.root (level 0)
             stack: list[Any] = [outline.root]
 
-            for entry in entries:
+            for entry in entries_list:
                 page_index = max(0, entry.start_page - 1)
                 new_item = OutlineItem(entry.title, page_index)
 

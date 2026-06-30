@@ -233,10 +233,6 @@ class BinderPlanTests(unittest.TestCase):
         self.assertTrue(FakePdf.last_new_pdf.closed)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class ManifestValidationTests(unittest.TestCase):
     def test_validate_manifest_for_bind_catches_empty_child_of_empty_parent(self):
         entries = [
@@ -259,3 +255,24 @@ class ManifestValidationTests(unittest.TestCase):
 
         # Should not raise
         validate_manifest_for_bind(entries)
+
+    def test_validate_manifest_for_bind_rejects_missing_parent_level(self):
+        entries = [
+            ManifestEntry(title="Part 1", level=1, path=None),
+            ManifestEntry(title="Section 1", level=3, path="/tmp/file.pdf"),
+        ]
+        from pdf_outline.manifest import validate_manifest_for_bind
+
+        with self.assertRaisesRegex(ValueError, "has no level 2 parent"):
+            validate_manifest_for_bind(entries)
+
+    def test_validate_manifest_for_bind_rejects_zero_level(self):
+        entries = [ManifestEntry(title="Broken", level=0, path="/tmp/file.pdf")]
+        from pdf_outline.manifest import validate_manifest_for_bind
+
+        with self.assertRaisesRegex(ValueError, "invalid level 0"):
+            validate_manifest_for_bind(entries)
+
+
+if __name__ == "__main__":
+    unittest.main()

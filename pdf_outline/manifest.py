@@ -43,24 +43,37 @@ def load_manifest(path: str | Path) -> list[ManifestEntry]:
         raise ValueError(f"Failed to parse manifest JSON: {exc}") from exc
 
 
-def validate_manifest_for_bind(entries: Sequence[ManifestEntry]) -> None:
-    """
-    Validate that a manifest is valid for the bind action.
-    Specifically, check that if an entry has no path (e.g. empty level 1),
-    it doesn't have child entries that also have no path.
-    """
-    stack = []
+def validate_manifest_levels(entries: Sequence[ManifestEntry]) -> None:
+    """Validate that manifest levels can form a hierarchy."""
+    stack: list[ManifestEntry] = []
 
     for entry in entries:
-        # Truncate stack based on level
+        if entry.level < 1:
+            raise ValueError(f"Entry '{entry.title}' has invalid level {entry.level}.")
+
+        if entry.level > len(stack) + 1:
+            raise ValueError(
+                f"Entry '{entry.title}' at level {entry.level} has no level "
+                f"{entry.level - 1} parent."
+            )
+
         if entry.level <= len(stack):
             stack = stack[: entry.level - 1]
 
         stack.append(entry)
 
-        # If this entry has no path, check if it's a child of an entry with no path
+
+def validate_manifest_for_bind(entries: Sequence[ManifestEntry]) -> None:
+    """Validate manifest entries for PDF binding."""
+    validate_manifest_levels(entries)
+    stack: list[ManifestEntry] = []
+
+    for entry in entries:
+        if entry.level <= len(stack):
+            stack = stack[: entry.level - 1]
+        stack.append(entry)
+
         if entry.path is None and entry.level > 1:
-            # Look at parent (which is at stack index level - 2, since 1-based level)
             parent = stack[entry.level - 2]
             if parent.path is None:
                 raise ValueError(
