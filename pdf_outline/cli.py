@@ -142,7 +142,7 @@ def split(
             output_path = output_dir / filename
 
             # Slicing: start_page is 1-based, end_page is inclusive
-            start = entry.start_page - 1
+            start = (entry.start_page or 1) - 1
             end = entry.end_page if entry.end_page is not None else start + 1
 
             new_pdf = Pdf.new()

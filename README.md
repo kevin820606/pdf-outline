@@ -99,7 +99,7 @@ Hierarchy is defined by the `level` property.
 Run the full test suite:
 
 ```bash
-uv run python -m unittest discover tests
+uv run pytest
 ```
 
 ## License

@@ -27,9 +27,9 @@ class BinderPlanTests(unittest.TestCase):
 
     def test_build_outline_plan_preserves_entry_order(self):
         entries = [
-            ManifestEntry("3. Later Chapter", Path("/tmp/three.pdf")),
-            ManifestEntry("Cover Page", Path("/tmp/cover.pdf")),
-            ManifestEntry("1. Introduction", Path("/tmp/intro.pdf")),
+            ManifestEntry(title="3. Later Chapter", path=Path("/tmp/three.pdf")),
+            ManifestEntry(title="Cover Page", path=Path("/tmp/cover.pdf")),
+            ManifestEntry(title="1. Introduction", path=Path("/tmp/intro.pdf")),
         ]
 
         plan = binder.build_outline_plan(entries, [4, 1, 2])
@@ -42,9 +42,9 @@ class BinderPlanTests(unittest.TestCase):
 
     def test_bind_pdfs_opens_sources_in_input_order_and_writes_outlines(self):
         entries = [
-            ManifestEntry("3. Later Chapter", Path("/tmp/three.pdf")),
-            ManifestEntry("Cover Page", Path("/tmp/cover.pdf")),
-            ManifestEntry("1. Introduction", Path("/tmp/intro.pdf")),
+            ManifestEntry(title="3. Later Chapter", path=Path("/tmp/three.pdf")),
+            ManifestEntry(title="Cover Page", path=Path("/tmp/cover.pdf")),
+            ManifestEntry(title="1. Introduction", path=Path("/tmp/intro.pdf")),
         ]
         open_calls = []
         opened_pdfs = []
@@ -163,8 +163,8 @@ class BinderPlanTests(unittest.TestCase):
 
     def test_bind_pdfs_closes_all_pdfs_when_save_fails(self):
         entries = [
-            ManifestEntry("Cover Page", Path("/tmp/cover.pdf")),
-            ManifestEntry("1. Introduction", Path("/tmp/intro.pdf")),
+            ManifestEntry(title="Cover Page", path=Path("/tmp/cover.pdf")),
+            ManifestEntry(title="1. Introduction", path=Path("/tmp/intro.pdf")),
         ]
         opened_pdfs = []
 

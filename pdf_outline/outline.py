@@ -90,11 +90,12 @@ def extract_toc(pdf_path: str | Path) -> list[ManifestEntry]:
         next_start = total_pages + 1
         for j in range(i + 1, len(entries)):
             if entries[j].level <= entry.level:
-                next_start = entries[j].start_page
+                next_start = entries[j].start_page or 1
                 break
 
-        page_count = max(0, next_start - entry.start_page)
-        end_page = max(entry.start_page, next_start - 1)
+        current_start = entry.start_page or 1
+        page_count = max(0, next_start - current_start)
+        end_page = max(current_start, next_start - 1)
 
         update_dict: dict[str, Any] = {
             "page_count": page_count,
@@ -129,6 +130,10 @@ def set_toc(
             stack: list[Any] = [outline.root]
 
             for entry in entries_list:
+                if entry.start_page is None:
+                    raise ValueError(
+                        f"start_page is required for entry '{entry.title}'"
+                    )
                 page_index = max(0, entry.start_page - 1)
                 new_item = OutlineItem(entry.title, page_index)
 

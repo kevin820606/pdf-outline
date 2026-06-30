@@ -15,12 +15,9 @@ class OutlinePlanEntry(BaseModel):
 
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
-    def __init__(self, title: str, start_page: int, level: int = 1, **kwargs):
-        super().__init__(title=title, start_page=start_page, level=level, **kwargs)
-
     title: str
     start_page: int
-    level: int
+    level: int = 1
 
 
 def build_entries_from_paths(input_paths: Sequence[str | Path]) -> list[ManifestEntry]:

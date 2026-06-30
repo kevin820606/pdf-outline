@@ -12,17 +12,6 @@ class ManifestEntry(BaseModel):
 
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
-    def __init__(
-        self, title: str | None = None, path: Path | str | None = None, **kwargs
-    ):
-        if title is not None:
-            kwargs["title"] = title
-        if path is not None:
-            kwargs["path"] = Path(path)
-        elif "path" in kwargs and isinstance(kwargs["path"], str):
-            kwargs["path"] = Path(kwargs["path"])
-        super().__init__(**kwargs)
-
     title: str = Field(..., min_length=1)
     level: int = 1
     path: Path | None = None

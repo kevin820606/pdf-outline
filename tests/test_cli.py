@@ -29,8 +29,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.stdout)
         bind_pdfs.assert_called_once_with(
             [
-                ManifestEntry("B", Path("book_(B).pdf")),
-                ManifestEntry("A", Path("book_(A).pdf")),
+                ManifestEntry(title="B", path=Path("book_(B).pdf")),
+                ManifestEntry(title="A", path=Path("book_(A).pdf")),
             ],
             Path("merged.pdf"),
         )
@@ -53,8 +53,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.stdout)
         bind_pdfs.assert_called_once_with(
             [
-                ManifestEntry("Cover", Path("cover.pdf")),
-                ManifestEntry("Book IV", Path("book4.pdf")),
+                ManifestEntry(title="Cover", path=Path("cover.pdf")),
+                ManifestEntry(title="Book IV", path=Path("book4.pdf")),
             ],
             Path("merged.pdf"),
         )
@@ -86,8 +86,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.stdout)
         bind_pdfs.assert_called_once_with(
             [
-                ManifestEntry("Cover", Path("cover.pdf")),
-                ManifestEntry("Book IV", Path("book4.pdf")),
+                ManifestEntry(title="Cover", path=Path("cover.pdf")),
+                ManifestEntry(title="Book IV", path=Path("book4.pdf")),
             ],
             Path("merged.pdf"),
         )
