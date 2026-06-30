@@ -3,20 +3,8 @@ from pathlib import Path
 from typing import Any
 
 from pikepdf import Array, Name, OutlineItem, Pdf
-from pydantic import BaseModel, ConfigDict
 
-
-class TocEntry(BaseModel):
-    """A single entry in the table of contents."""
-
-    model_config = ConfigDict(frozen=True)
-
-    level: int
-    title: str
-    start_page: int
-    index: int | None = None
-    end_page: int | None = None
-    page_count: int | None = None
+from pdf_outline.manifest import ManifestEntry
 
 
 def _resolve_page_number(
@@ -72,9 +60,9 @@ def _resolve_page_number(
     return None
 
 
-def extract_toc(pdf_path: str | Path) -> list[TocEntry]:
+def extract_toc(pdf_path: str | Path) -> list[ManifestEntry]:
     """Extract a flat list of TOC entries from a PDF's outline."""
-    entries: list[TocEntry] = []
+    entries: list[ManifestEntry] = []
     with Pdf.open(pdf_path) as pdf:
         page_map = {page.objgen: i for i, page in enumerate(pdf.pages)}
         total_pages = len(pdf.pages)
@@ -84,7 +72,7 @@ def extract_toc(pdf_path: str | Path) -> list[TocEntry]:
             page_num = (page_num + 1) if page_num is not None else 1
 
             entries.append(
-                TocEntry(
+                ManifestEntry(
                     level=level,
                     title=item.title or "",
                     start_page=page_num,
@@ -123,7 +111,7 @@ def extract_toc(pdf_path: str | Path) -> list[TocEntry]:
 
 def set_toc(
     pdf_path: str | Path,
-    entries: Iterable[TocEntry],
+    entries: Iterable[ManifestEntry],
     output_path: str | Path | None = None,
 ) -> None:
     """Set the TOC in a PDF to the given entries."""

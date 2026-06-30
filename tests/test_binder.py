@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from pdf_outline import binder
+from pdf_outline.manifest import ManifestEntry
 
 
 class BinderPlanTests(unittest.TestCase):
@@ -26,9 +27,9 @@ class BinderPlanTests(unittest.TestCase):
 
     def test_build_outline_plan_preserves_entry_order(self):
         entries = [
-            binder.BinderEntry("3. Later Chapter", Path("/tmp/three.pdf")),
-            binder.BinderEntry("Cover Page", Path("/tmp/cover.pdf")),
-            binder.BinderEntry("1. Introduction", Path("/tmp/intro.pdf")),
+            ManifestEntry("3. Later Chapter", Path("/tmp/three.pdf")),
+            ManifestEntry("Cover Page", Path("/tmp/cover.pdf")),
+            ManifestEntry("1. Introduction", Path("/tmp/intro.pdf")),
         ]
 
         plan = binder.build_outline_plan(entries, [4, 1, 2])
@@ -41,9 +42,9 @@ class BinderPlanTests(unittest.TestCase):
 
     def test_bind_pdfs_opens_sources_in_input_order_and_writes_outlines(self):
         entries = [
-            binder.BinderEntry("3. Later Chapter", Path("/tmp/three.pdf")),
-            binder.BinderEntry("Cover Page", Path("/tmp/cover.pdf")),
-            binder.BinderEntry("1. Introduction", Path("/tmp/intro.pdf")),
+            ManifestEntry("3. Later Chapter", Path("/tmp/three.pdf")),
+            ManifestEntry("Cover Page", Path("/tmp/cover.pdf")),
+            ManifestEntry("1. Introduction", Path("/tmp/intro.pdf")),
         ]
         open_calls = []
         opened_pdfs = []
@@ -162,8 +163,8 @@ class BinderPlanTests(unittest.TestCase):
 
     def test_bind_pdfs_closes_all_pdfs_when_save_fails(self):
         entries = [
-            binder.BinderEntry("Cover Page", Path("/tmp/cover.pdf")),
-            binder.BinderEntry("1. Introduction", Path("/tmp/intro.pdf")),
+            ManifestEntry("Cover Page", Path("/tmp/cover.pdf")),
+            ManifestEntry("1. Introduction", Path("/tmp/intro.pdf")),
         ]
         opened_pdfs = []
 
@@ -234,3 +235,27 @@ class BinderPlanTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ManifestValidationTests(unittest.TestCase):
+    def test_validate_manifest_for_bind_catches_empty_child_of_empty_parent(self):
+        entries = [
+            ManifestEntry(title="Part 1", level=1, path=None),
+            ManifestEntry(title="Chapter 1", level=2, path=None),
+        ]
+        from pdf_outline.manifest import validate_manifest_for_bind
+
+        with self.assertRaisesRegex(
+            ValueError, "cannot be a child of another empty entry"
+        ):
+            validate_manifest_for_bind(entries)
+
+    def test_validate_manifest_for_bind_allows_empty_parent_with_valid_child(self):
+        entries = [
+            ManifestEntry(title="Part 1", level=1, path=None),
+            ManifestEntry(title="Chapter 1", level=2, path="/tmp/file.pdf"),
+        ]
+        from pdf_outline.manifest import validate_manifest_for_bind
+
+        # Should not raise
+        validate_manifest_for_bind(entries)

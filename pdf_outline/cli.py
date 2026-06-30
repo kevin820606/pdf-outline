@@ -10,10 +10,10 @@ from pikepdf import Pdf
 from pdf_outline.binder import (
     bind_pdfs,
     build_entries_from_paths,
-    load_manifest,
     parse_entry,
 )
-from pdf_outline.outline import TocEntry, extract_toc
+from pdf_outline.manifest import load_manifest
+from pdf_outline.outline import extract_toc
 from pdf_outline.outline import set_toc as set_toc_outline
 from pdf_outline.titles import slugify_title
 
@@ -103,8 +103,7 @@ def set_toc_cmd(
 ) -> None:
     """Write a new table of contents into a PDF."""
     try:
-        data = json.loads(manifest.read_text(encoding="utf-8"))
-        entries = [TocEntry.model_validate(item) for item in data]
+        entries = load_manifest(manifest)
     except Exception as exc:
         raise typer.BadParameter(f"Failed to load manifest: {exc}") from exc
 

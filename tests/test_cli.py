@@ -1,11 +1,13 @@
 import json
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from pdf_outline import binder, cli
+from pdf_outline import cli
+from pdf_outline.manifest import ManifestEntry
 
 RUNNER = CliRunner()
 
@@ -27,8 +29,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.stdout)
         bind_pdfs.assert_called_once_with(
             [
-                binder.BinderEntry("B", Path("book_(B).pdf")),
-                binder.BinderEntry("A", Path("book_(A).pdf")),
+                ManifestEntry("B", Path("book_(B).pdf")),
+                ManifestEntry("A", Path("book_(A).pdf")),
             ],
             Path("merged.pdf"),
         )
@@ -51,15 +53,16 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.stdout)
         bind_pdfs.assert_called_once_with(
             [
-                binder.BinderEntry("Cover", Path("cover.pdf")),
-                binder.BinderEntry("Book IV", Path("book4.pdf")),
+                ManifestEntry("Cover", Path("cover.pdf")),
+                ManifestEntry("Book IV", Path("book4.pdf")),
             ],
             Path("merged.pdf"),
         )
 
     def test_invokes_typer_with_manifest(self):
-        with RUNNER.isolated_filesystem():
-            Path("chapters.json").write_text(
+        with TemporaryDirectory() as tmpdir:
+            manifest = Path(tmpdir) / "chapters.json"
+            manifest.write_text(
                 json.dumps(
                     [
                         {"title": "Cover", "path": "cover.pdf"},
@@ -76,15 +79,15 @@ class CliTests(unittest.TestCase):
                         "--output",
                         "merged.pdf",
                         "--manifest",
-                        "chapters.json",
+                        str(manifest),
                     ],
                 )
 
         self.assertEqual(result.exit_code, 0, result.stdout)
         bind_pdfs.assert_called_once_with(
             [
-                binder.BinderEntry("Cover", Path("cover.pdf")),
-                binder.BinderEntry("Book IV", Path("book4.pdf")),
+                ManifestEntry("Cover", Path("cover.pdf")),
+                ManifestEntry("Book IV", Path("book4.pdf")),
             ],
             Path("merged.pdf"),
         )
