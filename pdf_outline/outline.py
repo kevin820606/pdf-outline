@@ -4,7 +4,35 @@ from typing import Any
 
 from pikepdf import Array, Name, OutlineItem, Pdf
 
-from pdf_outline.manifest import ManifestEntry, validate_manifest_levels
+from pdf_outline.manifest import ManifestEntry, TocEntry, validate_manifest_levels
+
+
+def _write_outline_items(
+    outline_root: Any,
+    items: Iterable[tuple[str, int, int]],
+) -> None:
+    """Append OutlineItems into an outline root following level hierarchy.
+
+    Args:
+        outline_root: The root list-like object (``outline.root`` or an
+            ``OutlineItem.children`` list) to append top-level items to.
+        items: An iterable of ``(title, page_index, level)`` tuples where
+            *page_index* is 0-based and *level* starts at 1.
+    """
+    stack: list[Any] = [outline_root]
+    for title, page_index, level in items:
+        new_item = OutlineItem(title, page_index)
+
+        if level < len(stack):
+            stack = stack[:level]
+
+        parent = stack[-1]
+        if hasattr(parent, "children"):
+            parent.children.append(new_item)
+        else:
+            parent.append(new_item)
+
+        stack.append(new_item)
 
 
 def _resolve_page_number(
@@ -60,30 +88,30 @@ def _resolve_page_number(
     return None
 
 
-def extract_toc(pdf_path: str | Path) -> list[ManifestEntry]:
+def extract_toc(pdf_path: str | Path) -> list[TocEntry]:
     """Extract a flat list of TOC entries from a PDF's outline."""
-    entries: list[ManifestEntry] = []
+    entries: list[TocEntry] = []
     with Pdf.open(pdf_path) as pdf:
         page_map = {page.objgen: i for i, page in enumerate(pdf.pages)}
         total_pages = len(pdf.pages)
 
-        def _walk(item: OutlineItem, level: int) -> None:
+        def _walk(item: OutlineItem, level: int) -> list[TocEntry]:
             page_num = _resolve_page_number(pdf, item, page_map)
             page_num = (page_num + 1) if page_num is not None else 1
-
-            entries.append(
-                ManifestEntry(
+            result: list[TocEntry] = [
+                TocEntry(
                     level=level,
                     title=item.title or "",
                     start_page=page_num,
-                ),
-            )
+                )
+            ]
             for child in item.children:
-                _walk(child, level + 1)
+                result.extend(_walk(child, level + 1))
+            return result
 
         with pdf.open_outline() as outline:
             for item in outline.root:
-                _walk(item, 1)
+                entries.extend(_walk(item, 1))
 
     current_index = 1
     for i, entry in enumerate(entries):
@@ -122,32 +150,16 @@ def set_toc(
 
     with Pdf.open(pdf_path, allow_overwriting_input=True) as pdf:
         with pdf.open_outline() as outline:
-            # Clear existing outline
             outline.root.clear()
 
-            # Stack stores the items we can append to.
-            # stack[0] is outline.root (level 0)
-            stack: list[Any] = [outline.root]
+            def _validated_items() -> Iterable[tuple[str, int, int]]:
+                for entry in entries_list:
+                    if entry.start_page is None:
+                        raise ValueError(
+                            f"start_page is required for entry '{entry.title}'"
+                        )
+                    yield entry.title, max(0, entry.start_page - 1), entry.level
 
-            for entry in entries_list:
-                if entry.start_page is None:
-                    raise ValueError(
-                        f"start_page is required for entry '{entry.title}'"
-                    )
-                page_index = max(0, entry.start_page - 1)
-                new_item = OutlineItem(entry.title, page_index)
-
-                # Truncate stack if level is <= current nesting depth
-                if entry.level < len(stack):
-                    stack = stack[: entry.level]
-
-                parent = stack[-1]
-
-                if hasattr(parent, "children"):
-                    parent.children.append(new_item)
-                else:
-                    parent.append(new_item)
-
-                stack.append(new_item)
+            _write_outline_items(outline.root, _validated_items())
 
         pdf.save(output_path)

@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from pdf_outline import binder
+from pdf_outline import outline as outline_module
 from pdf_outline.manifest import ManifestEntry
 
 
@@ -131,7 +132,7 @@ class BinderPlanTests(unittest.TestCase):
 
         with (
             patch.object(binder, "Pdf", FakePdf),
-            patch.object(binder, "OutlineItem", FakeOutlineItem),
+            patch.object(outline_module, "OutlineItem", FakeOutlineItem),
         ):
             binder.bind_pdfs(entries, "/tmp/output.pdf")
 
@@ -224,7 +225,7 @@ class BinderPlanTests(unittest.TestCase):
 
         with (
             patch.object(binder, "Pdf", FakePdf),
-            patch.object(binder, "OutlineItem", FakeOutlineItem),
+            patch.object(outline_module, "OutlineItem", FakeOutlineItem),
             self.assertRaisesRegex(RuntimeError, "save failed"),
         ):
             binder.bind_pdfs(entries, "/tmp/output.pdf")

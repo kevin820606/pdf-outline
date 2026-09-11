@@ -1,13 +1,13 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Sequence
 from contextlib import ExitStack
 from pathlib import Path
-from typing import Any
 
-from pikepdf import OutlineItem, Pdf
+from pikepdf import Pdf
 from pydantic import BaseModel, ConfigDict
 
 from pdf_outline import titles
 from pdf_outline.manifest import ManifestEntry, validate_manifest_for_bind
+from pdf_outline.outline import _write_outline_items
 
 
 class OutlinePlanEntry(BaseModel):
@@ -20,14 +20,20 @@ class OutlinePlanEntry(BaseModel):
     level: int = 1
 
 
-def build_entries_from_paths(input_paths: Sequence[str | Path]) -> list[ManifestEntry]:
+def build_entries_from_paths(
+    input_paths: Sequence[str | Path],
+    extra_acronyms: Collection[str] = (),
+) -> list[ManifestEntry]:
     """Extract titles from parenthesized filenames for binding."""
     entries: list[ManifestEntry] = []
     for input_path in input_paths:
         path = Path(input_path)
         chapter_token = titles.extract_chapter_token(str(path))
         entries.append(
-            ManifestEntry(title=titles.normalize_title(chapter_token), path=path),
+            ManifestEntry(
+                title=titles.normalize_title(chapter_token, extra_acronyms),
+                path=path,
+            ),
         )
     return entries
 
@@ -87,28 +93,16 @@ def bind_pdfs(entries: Iterable[ManifestEntry], output_path: str | Path) -> None
 
         source_iter = iter(sources)
 
+        # Pass 1: extend output pages in entry order
+        for entry in entries_list:
+            if entry.path is not None:
+                output_pdf.pages.extend(next(source_iter).pages)
+
+        # Pass 2: write the outline using pre-computed page offsets
         with output_pdf.open_outline() as outline:
-            # Stack stores the items we can append to.
-            # out_stack[0] is outline.root (level 0)
-            out_stack: list[Any] = [outline.root]
-
-            for entry, plan_entry in zip(entries_list, outline_plan, strict=True):
-                if entry.path is not None:
-                    source_pdf = next(source_iter)
-                    output_pdf.pages.extend(source_pdf.pages)
-
-                new_item = OutlineItem(plan_entry.title, plan_entry.start_page)
-
-                if plan_entry.level < len(out_stack):
-                    out_stack = out_stack[: plan_entry.level]
-
-                parent = out_stack[-1]
-
-                if hasattr(parent, "children"):
-                    parent.children.append(new_item)
-                else:
-                    parent.append(new_item)
-
-                out_stack.append(new_item)
+            _write_outline_items(
+                outline.root,
+                ((p.title, p.start_page, p.level) for p in outline_plan),
+            )
 
         output_pdf.save(Path(output_path))
