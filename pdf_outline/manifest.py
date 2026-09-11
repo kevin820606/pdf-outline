@@ -7,7 +7,17 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ManifestEntry(BaseModel):
     """
-    Unified entry for both PDF binding and TOC setting.
+    Input entry for PDF binding (``bind``) and TOC writing (``set-toc``).
+
+    Fields populated in both contexts:
+    - ``title``: bookmark / TOC label.
+    - ``level``: nesting depth (1 = top-level chapter).
+
+    Bind-only fields:
+    - ``path``: source PDF to merge.
+
+    Set-TOC-only fields:
+    - ``start_page``: 1-based page number for the bookmark destination.
     """
 
     model_config = ConfigDict(frozen=True, populate_by_name=True)
@@ -16,6 +26,21 @@ class ManifestEntry(BaseModel):
     level: int = 1
     path: Path | None = None
     start_page: int | None = None
+
+
+class TocEntry(ManifestEntry):
+    """
+    Output entry produced by ``extract_toc``.
+
+    Extends :class:`ManifestEntry` with fields that are computed during
+    extraction and have no meaning as inputs:
+
+    - ``index``: sequential position among level-1 entries (``None`` for
+      sub-entries).
+    - ``end_page``: last page covered by this entry (inclusive, 1-based).
+    - ``page_count``: number of pages spanned by this entry.
+    """
+
     index: int | None = None
     end_page: int | None = None
     page_count: int | None = None

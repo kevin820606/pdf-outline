@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 
 from pikepdf import OutlineItem, Pdf
 
-from pdf_outline.manifest import ManifestEntry
+from pdf_outline.manifest import ManifestEntry, TocEntry
 from pdf_outline.outline import extract_toc, set_toc
 
 
@@ -78,7 +78,7 @@ class TestOutline(unittest.TestCase):
             pdf.save(pdf_path)
 
             entries = [
-                ManifestEntry(
+                TocEntry(
                     level=1,
                     title="Chap 1",
                     start_page=1,
@@ -86,7 +86,7 @@ class TestOutline(unittest.TestCase):
                     page_count=2,
                     index=1,
                 ),
-                ManifestEntry(
+                TocEntry(
                     level=2,
                     title="Sec 1.1",
                     start_page=2,
@@ -94,7 +94,7 @@ class TestOutline(unittest.TestCase):
                     page_count=1,
                     index=None,
                 ),
-                ManifestEntry(
+                TocEntry(
                     level=2,
                     title="Sec 1.2",
                     start_page=3,
@@ -102,7 +102,7 @@ class TestOutline(unittest.TestCase):
                     page_count=0,
                     index=None,
                 ),
-                ManifestEntry(
+                TocEntry(
                     level=1,
                     title="Chap 2",
                     start_page=3,
@@ -138,7 +138,7 @@ class TestOutline(unittest.TestCase):
                 outline.root.append(OutlineItem("Old", 0))
             pdf.save(pdf_path)
 
-            entries = [ManifestEntry(level=1, title="New", start_page=1, index=1)]
+            entries = [TocEntry(level=1, title="New", start_page=1, index=1)]
             set_toc(pdf_path, entries)
 
             extracted = extract_toc(pdf_path)
