@@ -43,8 +43,20 @@ def bind(
         list[Path] | None,
         typer.Argument(help="Input PDF paths in merge order."),
     ] = None,
+    acronym: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--acronym",
+            help=(
+                "Extra acronym to preserve in upper-case during title normalisation "
+                "(repeatable, e.g. --acronym GDP --acronym IMF). "
+                "Only applies when titles are derived from filenames."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Merge PDFs in CLI order."""
+    extra_acronyms: list[str] = acronym or []
     try:
         if manifest is not None:
             if entry or inputs:
@@ -57,7 +69,7 @@ def bind(
         else:
             if not inputs:
                 raise ValueError("exactly one input mode must be used")
-            entries = build_entries_from_paths(inputs)
+            entries = build_entries_from_paths(inputs, extra_acronyms)
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
 
@@ -146,8 +158,11 @@ def split(
             end = entry.end_page if entry.end_page is not None else start + 1
 
             new_pdf = Pdf.new()
-            new_pdf.pages.extend(pdf.pages[start:end])
-            new_pdf.save(output_path)
+            try:
+                new_pdf.pages.extend(pdf.pages[start:end])
+                new_pdf.save(output_path)
+            finally:
+                new_pdf.close()
             typer.echo(f"Created: {output_path}")
 
 
