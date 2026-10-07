@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
@@ -12,7 +13,7 @@ from pdf_outline.binder import (
     build_entries_from_paths,
     parse_entry,
 )
-from pdf_outline.manifest import load_manifest
+from pdf_outline.manifest import ManifestEntry, load_manifest
 from pdf_outline.outline import extract_toc
 from pdf_outline.outline import set_toc as set_toc_outline
 from pdf_outline.titles import slugify_title
@@ -20,6 +21,43 @@ from pdf_outline.titles import slugify_title
 app = typer.Typer(
     help="Merge PDFs in CLI order and generate outline titles from filenames.",
 )
+
+
+class ManifestMode(StrEnum):
+    bind = "bind"
+    set_toc = "set-toc"
+
+
+@app.command()
+def create_manifest(
+    output: Annotated[
+        Path, typer.Option("--output", help="Path for the JSON manifest template.")
+    ] = Path("manifest.json"),
+    mode: Annotated[
+        ManifestMode, typer.Option("--mode", help="Command that will use the manifest.")
+    ] = ManifestMode.bind,
+) -> None:
+    """Create an editable manifest template without overwriting existing files."""
+    entries = [
+        ManifestEntry(
+            title=title,
+            level=level,
+            path=Path(path) if mode == ManifestMode.bind else None,
+            start_page=page if mode == ManifestMode.set_toc else None,
+        )
+        for title, level, path, page in [
+            ("Introduction", 1, "01_intro.pdf", 1),
+            ("Background", 2, "02_background.pdf", 2),
+            ("Chapter 1", 1, "03_chapter1.pdf", 3),
+        ]
+    ]
+    data = [entry.model_dump(mode="json", exclude_none=True) for entry in entries]
+    try:
+        with output.open("x", encoding="utf-8") as stream:
+            stream.write(json.dumps(data, indent=2) + "\n")
+    except OSError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--output") from exc
+    typer.echo(f"Created: {output}")
 
 
 @app.command()

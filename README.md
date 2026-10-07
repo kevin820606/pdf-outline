@@ -12,6 +12,7 @@
 - **`split`**: Divides a PDF into separate files based on its level-1 TOC entries.
   - Automatically names files using the chapter index and a sanitized title.
 - **`set-toc`**: Writes a new hierarchical outline into an existing PDF from a JSON manifest.
+- **`create-manifest`**: Creates an editable JSON template for `bind` or `set-toc`.
 
 ## Installation
 
@@ -72,6 +73,18 @@ Overwrite or add a table of contents using a JSON manifest. `start_page` is 1-ba
 ```bash
 uv run pdf-outline set-toc input.pdf --manifest outline.json --output updated.pdf
 ```
+
+### 5. Create a Manifest Template
+
+```bash
+# Defaults to a bind template saved as manifest.json
+uv run pdf-outline create-manifest
+
+uv run pdf-outline create-manifest --mode set-toc --output outline.json
+```
+
+Edit the sample titles, paths, levels, or 1-based page numbers before using the
+manifest. Existing output files are never overwritten.
 
 ## Filename Rules (for `bind`)
 
