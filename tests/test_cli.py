@@ -5,6 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+import pytest
 from typer.testing import CliRunner
 
 from pdf_outline import cli
@@ -192,3 +193,34 @@ class CliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_set_toc_invalid_page_is_a_cli_error(tmp_pdf, tmp_path):
+    source = tmp_pdf(pages=2, toc=[("Old", 0)])
+    original = source.read_bytes()
+    manifest = tmp_path / "invalid.json"
+    manifest.write_text(json.dumps([{"title": "Invalid", "start_page": 0}]))
+    result = RUNNER.invoke(
+        cli.app, ["set-toc", str(source), "--manifest", str(manifest)]
+    )
+    assert result.exit_code != 0
+    assert "start_page must be between 1 and 2" in result.output
+    assert source.read_bytes() == original
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+def test_toc_reports_unknown_destination(tmp_pdf, tmp_path, as_json):
+    from pikepdf import Pdf, String
+
+    source = tmp_pdf(pages=2, toc=[("Unknown", 0)])
+    target = tmp_path / "unknown.pdf"
+    with Pdf.open(source) as pdf:
+        pdf.Root.Outlines.First.Dest = String("missing")
+        pdf.save(target)
+    args = ["toc", str(target)] + (["--json"] if as_json else [])
+    result = RUNNER.invoke(cli.app, args)
+    assert result.exit_code == 0
+    if as_json:
+        assert json.loads(result.output)[0]["start_page"] is None
+    else:
+        assert "p.?" in result.output

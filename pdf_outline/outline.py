@@ -2,9 +2,13 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from pikepdf import Array, Name, OutlineItem, Pdf
+from pikepdf import Array, Dictionary, Name, NameTree, OutlineItem, Pdf, String
 
-from pdf_outline.manifest import ManifestEntry, TocEntry, validate_manifest_levels
+from pdf_outline.manifest import (
+    ManifestEntry,
+    TocEntry,
+    validate_manifest_for_set_toc,
+)
 
 
 def _write_outline_items(
@@ -48,42 +52,26 @@ def _resolve_page_number(
     if dest is None:
         return None
 
-    # Handle named destinations
-    if isinstance(dest, str | Name):
-        # Try to resolve named destination in root.Names.Dests
-        if "/Names" in pdf.root and "/Dests" in pdf.root.Names:
-            from pikepdf import NameTree
+    if isinstance(dest, str | String | Name):
+        key = str(dest).removeprefix("/") if isinstance(dest, Name) else str(dest)
+        names = pdf.Root.get("/Names")
+        if names is not None and "/Dests" in names:
+            dest_tree = NameTree(names.Dests)
+            if key in dest_tree:
+                dest = dest_tree[key]
+        if isinstance(dest, str | String | Name):
+            legacy = pdf.Root.get("/Dests")
+            dest = legacy.get(f"/{key}") if legacy is not None else None
 
-            try:
-                dest_tree = NameTree(pdf.root.Names.Dests)
-                if dest in dest_tree:
-                    dest = dest_tree[dest]
-            except Exception:
-                pass
-
-        # Also check /Dests directly in root
-        if (
-            isinstance(dest, str | Name)
-            and "/Dests" in pdf.root
-            and dest in pdf.root.Dests
-        ):
-            dest = pdf.root.Dests[dest]
-
-        # If it's still a name/string, we failed to resolve
-        if isinstance(dest, str | Name):
-            return None
-
-    # If it's a dictionary (like from a name tree), it usually has a /D array
-    if isinstance(dest, dict) and "/D" in dest:
-        dest = dest["/D"]
+    if isinstance(dest, Dictionary):
+        dest = dest.get("/D")
 
     if isinstance(dest, Array) and len(dest) > 0:
         page_ref = dest[0]
+        if isinstance(page_ref, int):
+            return page_ref if 0 <= page_ref < len(pdf.pages) else None
         if hasattr(page_ref, "objgen"):
             return page_map.get(page_ref.objgen)
-        # If it's an integer, it might be a page index directly
-        if isinstance(page_ref, int):
-            return page_ref
 
     return None
 
@@ -97,7 +85,7 @@ def extract_toc(pdf_path: str | Path) -> list[TocEntry]:
 
         def _walk(item: OutlineItem, level: int) -> list[TocEntry]:
             page_num = _resolve_page_number(pdf, item, page_map)
-            page_num = (page_num + 1) if page_num is not None else 1
+            page_num = (page_num + 1) if page_num is not None else None
             result: list[TocEntry] = [
                 TocEntry(
                     level=level,
@@ -118,12 +106,18 @@ def extract_toc(pdf_path: str | Path) -> list[TocEntry]:
         next_start = total_pages + 1
         for j in range(i + 1, len(entries)):
             if entries[j].level <= entry.level:
-                next_start = entries[j].start_page or 1
+                next_start = entries[j].start_page
                 break
 
-        current_start = entry.start_page or 1
-        page_count = max(0, next_start - current_start)
-        end_page = max(current_start, next_start - 1)
+        current_start = entry.start_page
+        page_count = end_page = None
+        if (
+            current_start is not None
+            and next_start is not None
+            and next_start >= current_start
+        ):
+            page_count = next_start - current_start
+            end_page = max(current_start, next_start - 1)
 
         update_dict: dict[str, Any] = {
             "page_count": page_count,
@@ -146,20 +140,13 @@ def set_toc(
     """Set the TOC in a PDF to the given entries."""
     output_path = output_path or pdf_path
     entries_list = list(entries)
-    validate_manifest_levels(entries_list)
-
     with Pdf.open(pdf_path, allow_overwriting_input=True) as pdf:
+        validate_manifest_for_set_toc(entries_list, len(pdf.pages))
         with pdf.open_outline() as outline:
             outline.root.clear()
-
-            def _validated_items() -> Iterable[tuple[str, int, int]]:
-                for entry in entries_list:
-                    if entry.start_page is None:
-                        raise ValueError(
-                            f"start_page is required for entry '{entry.title}'"
-                        )
-                    yield entry.title, max(0, entry.start_page - 1), entry.level
-
-            _write_outline_items(outline.root, _validated_items())
+            _write_outline_items(
+                outline.root,
+                ((e.title, e.start_page - 1, e.level) for e in entries_list),
+            )
 
         pdf.save(output_path)

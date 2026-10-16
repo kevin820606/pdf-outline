@@ -94,3 +94,18 @@ def validate_manifest_for_bind(entries: Sequence[ManifestEntry]) -> None:
                     f"Empty entry '{entry.title}' at level {entry.level} "
                     f"cannot be a child of another empty entry '{parent.title}'."
                 )
+
+
+def validate_manifest_for_set_toc(
+    entries: Sequence[ManifestEntry], total_pages: int
+) -> None:
+    """Validate all destinations before replacing an existing outline."""
+    validate_manifest_levels(entries)
+    for entry in entries:
+        if entry.start_page is None:
+            raise ValueError(f"start_page is required for entry '{entry.title}'")
+        if not 1 <= entry.start_page <= total_pages:
+            raise ValueError(
+                f"Entry '{entry.title}' start_page must be between 1 and "
+                f"{total_pages}; got {entry.start_page}."
+            )

@@ -2,7 +2,8 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from pikepdf import OutlineItem, Pdf
+import pytest
+from pikepdf import Array, Dictionary, Name, NameTree, OutlineItem, Pdf, String
 
 from pdf_outline.manifest import ManifestEntry, TocEntry
 from pdf_outline.outline import extract_toc, set_toc
@@ -161,3 +162,85 @@ class TestOutline(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@pytest.mark.parametrize("storage", ["tree-array", "tree-dict", "legacy"])
+@pytest.mark.parametrize("action", [False, True])
+def test_extract_named_destinations(tmp_pdf, tmp_path, storage, action):
+    source = tmp_pdf(pages=4, toc=[("Named chapter", 0)])
+    target = tmp_path / "named.pdf"
+    with Pdf.open(source) as pdf:
+        destination = Array([pdf.pages[2].obj, Name.Fit])
+        if storage == "legacy":
+            pdf.Root.Dests = Dictionary(chapter=Dictionary(D=destination))
+            reference = Name("/chapter")
+        else:
+            tree = NameTree.new(pdf)
+            tree["chapter"] = (
+                Dictionary(D=destination) if storage == "tree-dict" else destination
+            )
+            pdf.Root.Names = Dictionary(Dests=tree.obj)
+            reference = String("chapter")
+        bookmark = pdf.Root.Outlines.First
+        if action:
+            del bookmark.Dest
+            bookmark.A = Dictionary(S=Name.GoTo, D=reference)
+        else:
+            bookmark.Dest = reference
+        pdf.save(target)
+    entry = extract_toc(target)[0]
+    assert (entry.start_page, entry.end_page, entry.page_count) == (3, 4, 2)
+
+
+def test_unresolved_destination_preserves_unknown_ranges(tmp_pdf, tmp_path):
+    source = tmp_pdf(pages=4, toc=[("Known", 0), ("Unknown", 2)])
+    target = tmp_path / "unresolved.pdf"
+    with Pdf.open(source) as pdf:
+        pdf.Root.Outlines.First.Next.Dest = String("missing")
+        pdf.save(target)
+    known, unknown = extract_toc(target)
+    assert known.start_page == 1
+    assert known.end_page is None and known.page_count is None
+    assert unknown.start_page is None
+    assert unknown.end_page is None and unknown.page_count is None
+    assert [known.index, unknown.index] == [1, 2]
+
+
+@pytest.mark.parametrize("page", [None, -2, 0, 4])
+@pytest.mark.parametrize("in_place", [False, True])
+def test_set_toc_rejects_invalid_pages_without_writing(
+    tmp_pdf, tmp_path, page, in_place
+):
+    source = tmp_pdf(pages=3, toc=[("Old", 0)])
+    output = source if in_place else tmp_path / "output.pdf"
+    if not in_place:
+        output.write_bytes(b"existing output")
+    original_source, original_output = source.read_bytes(), output.read_bytes()
+    with pytest.raises(ValueError, match="start_page"):
+        set_toc(
+            source,
+            [
+                ManifestEntry(title="Valid", start_page=1),
+                ManifestEntry(title="Invalid", start_page=page),
+            ],
+            output,
+        )
+    assert source.read_bytes() == original_source
+    assert output.read_bytes() == original_output
+
+
+def test_set_toc_accepts_last_page(tmp_pdf, tmp_path):
+    source = tmp_pdf(pages=3)
+    output = tmp_path / "output.pdf"
+    set_toc(source, [ManifestEntry(title="Last", start_page=3)], output)
+    assert extract_toc(output)[0].start_page == 3
+
+
+@pytest.mark.parametrize("page_index, expected", [(-1, None), (2, 3), (3, None)])
+def test_integer_destination_bounds(tmp_pdf, tmp_path, page_index, expected):
+    source = tmp_pdf(pages=3, toc=[("Chapter", 0)])
+    target = tmp_path / "integer-destination.pdf"
+    with Pdf.open(source) as pdf:
+        pdf.Root.Outlines.First.Dest = Array([page_index, Name.Fit])
+        pdf.save(target)
+    assert extract_toc(target)[0].start_page == expected

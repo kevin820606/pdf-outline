@@ -12,7 +12,7 @@ description: 使用 pdf-outline CLI 合併 PDF 並建立書籤、讀取或重建
 - 先執行 `pdf-outline --help` 確認可用版本與命令。若未安裝，使用本機 checkout `/Users/kevinkuo/Source/pdf-outline`，先查其 `pyproject.toml` 與 `uv.lock`，再用 `uv run --frozen --project /Users/kevinkuo/Source/pdf-outline pdf-outline --help`。其他機器先定位 checkout；此專案需要 Python >=3.14。
 - 下列範例假設 `pdf-outline` 已在 PATH；使用 checkout 時，以前述 `uv run --frozen --project ... pdf-outline` 取代。環境要求 RTK 時，外層加 `rtk proxy`，避免過濾 JSON 輸出。
 - 路徑一律加引號。使用絕對來源與輸出路徑，避免執行目錄歧義；manifest 內的相對 `path` 依程序工作目錄解析，**不是 manifest 所在目錄**。
-- 預設寫到新的輸出檔或空目錄；既有目的檔可能被覆寫。`create-manifest` 會拒絕覆寫，但其他命令沒有同等保護。只有使用者已要求覆寫時才使用原路徑。
+- 預設寫到新的輸出檔或空目錄。`create-manifest` 與 `split` 拒絕覆寫既有目的檔；`bind`、`set-toc` 只有使用者已要求覆寫時才使用既有路徑。
 
 ## 讀取目錄：`toc`
 
@@ -25,7 +25,7 @@ pdf-outline toc "/absolute/book.pdf" --json
 
 `index` 是所有第一層書籤的流水號，含封面、前言等，並非書上的章號。先用標題與頁面確認對應，不直接把「第三章」當成 index 3。
 
-空陣列表示沒有可抽取的書籤，不代表沒有印刷目錄。CLI 不會 OCR 或辨識目錄頁。無法解析的目的地會回退為第 1 頁；可疑的起始頁、重複頁或非遞增順序，須核對原 PDF 後再用於拆章。
+空陣列表示沒有可抽取的書籤，不代表沒有印刷目錄。CLI 不會 OCR 或辨識目錄頁。命名目的地與本機 GoTo 動作可解析為實體頁碼；無法解析時 `start_page` 為 null，文字輸出為 `p.?`，無法確定的範圍亦為 null。此類第一層書籤及非嚴格遞增的起始頁會使拆章失敗，須核對來源並修正書籤。
 
 ## 合併：`bind`
 
@@ -77,7 +77,7 @@ pdf-outline set-toc "/absolute/book.pdf" \
   --manifest "/absolute/outline.json" --output "/absolute/book-with-outline.pdf"
 ```
 
-每項必須有 `start_page`，使用 PDF 實體頁碼，不使用印刷頁碼或羅馬頁碼標籤。執行前核對 `1 <= start_page <= PDF 總頁數`，並檢查父層存在；CLI 對頁碼的檢查不足以取代此核對。空 manifest 會清除目錄，只在要求清除時使用。
+每項必須有 `start_page`，使用 PDF 實體頁碼，不使用印刷頁碼或羅馬頁碼標籤。核心函式會在修改前檢查父層及所有頁碼的 `1 <= start_page <= PDF 總頁數`；仍須核對書上的章節是否對應到指定頁面。空 manifest 會清除目錄，只在要求清除時使用。
 
 省略 `--output` 會直接覆寫輸入 PDF，因此預設明確提供新路徑。完成後重讀輸出 `toc --json`，核對每項標題、層級與起始頁，並確認總頁數未變。
 
@@ -92,8 +92,8 @@ pdf-outline split "/absolute/book.pdf" --outdir "/absolute/new-chapters" --no-nu
 ```
 
 - 只依第一層書籤切割，不依子節或印刷目錄；沒有指定單章或任意頁範圍的選項。只需要幾章時，先拆到暫存目錄，再將已確認的章節複製到目的地。
-- 每段從該項起始頁切到下一個第一層項目前一頁，最後一項切到文件結尾。第一項之前的頁面不會輸出，`page_count <= 0` 的項目會略過。
-- 預設如 `01_Chapter-1.pdf`。標題中的空白、點與底線變成連字號，其他部分符號會移除；`--no-number` 可能讓不同標題變成同名。執行前檢查清理後檔名的唯一性，碰撞時保留編號。
+- 每段從該項起始頁切到下一個第一層項目前一頁，最後一項切到文件結尾。第一項之前的頁面不會輸出；所有第一層目的地須可解析且起始頁嚴格遞增，否則在寫入前拒絕執行。
+- 預設如 `01_Chapter-1.pdf`。標題中的空白、點與底線變成連字號，其他部分符號會移除；`--no-number` 可能讓不同標題變成同名。核心會先檢查全部輸出名稱，拒絕重名（含僅大小寫不同）及既有目的檔。碰撞時保留編號，目的檔已存在時改用新目錄。
 - 無可拆書籤時會印出訊息並正常退出，因此 exit code 0 不保證產生檔案。核對實際輸出清單與各檔頁數是否符合預期 `page_count`；需要內容身分確認時，檢視各章首尾頁。輸出章節不會自動保留原書籤樹。
 
 ## 產生範本：`create-manifest`

@@ -54,6 +54,10 @@ Extract to JSON:
 uv run pdf-outline toc input.pdf --json > outline.json
 ```
 
+Named destinations and local GoTo actions are resolved to physical PDF pages.
+Unresolved destinations have `start_page: null` (`p.?` in text output), and
+unavailable ranges have `end_page: null` and `page_count: null`.
+
 ### 3. Split by Chapters
 
 Split a single book PDF into separate files named by their top-level TOC entries.
@@ -66,9 +70,26 @@ uv run pdf-outline split book.pdf --outdir chapters
 uv run pdf-outline split book.pdf --no-number
 ```
 
+Splitting checks every level-1 destination and output name before writing.
+Destinations must resolve to strictly increasing pages. Duplicate filenames
+(including names differing only in case) and existing output files are rejected;
+choose a new directory or keep numbering. Pages before the first bookmark are
+not included. A PDF without level-1 bookmarks produces no files.
+
+The same operation is available from Python:
+
+```python
+from pdf_outline.splitter import split_pdf
+
+paths = split_pdf("book.pdf", "new-chapters", number=True)
+```
+
 ### 4. Set TOC
 
 Overwrite or add a table of contents using a JSON manifest. `start_page` is 1-based.
+Every entry is validated against the PDF page count before replacing the outline.
+Zero, negative, missing, and out-of-range page numbers are rejected.
+Omitting `--output` overwrites the input PDF.
 
 ```bash
 uv run pdf-outline set-toc input.pdf --manifest outline.json --output updated.pdf

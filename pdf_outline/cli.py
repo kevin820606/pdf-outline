@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from pikepdf import Pdf
 
 from pdf_outline.binder import (
     bind_pdfs,
@@ -16,7 +15,7 @@ from pdf_outline.binder import (
 from pdf_outline.manifest import ManifestEntry, load_manifest
 from pdf_outline.outline import extract_toc
 from pdf_outline.outline import set_toc as set_toc_outline
-from pdf_outline.titles import slugify_title
+from pdf_outline.splitter import split_pdf
 
 app = typer.Typer(
     help="Merge PDFs in CLI order and generate outline titles from filenames.",
@@ -133,9 +132,10 @@ def toc(
                 if entry.page_count is not None
                 else ""
             )
+            page = entry.start_page if entry.start_page is not None else "?"
             typer.echo(
                 f"{idx_str}{indent}{entry.level}  {entry.title:<40} "
-                f"p.{entry.start_page} {count_str}"
+                f"p.{page} {count_str}"
             )
 
 
@@ -154,10 +154,9 @@ def set_toc_cmd(
     """Write a new table of contents into a PDF."""
     try:
         entries = load_manifest(manifest)
-    except Exception as exc:
-        raise typer.BadParameter(f"Failed to load manifest: {exc}") from exc
-
-    set_toc_outline(input_pdf, entries, output)
+        set_toc_outline(input_pdf, entries, output)
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
 
 @app.command()
@@ -173,35 +172,14 @@ def split(
     ] = True,
 ) -> None:
     """Split a PDF into separate files based on its level-1 TOC entries."""
-    entries = [
-        e for e in extract_toc(input_pdf) if e.level == 1 and (e.page_count or 0) > 0
-    ]
-    if not entries:
+    try:
+        outputs = split_pdf(input_pdf, output_dir, number)
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if not outputs:
         typer.echo("No level-1 TOC entries found to split.")
-        raise typer.Exit()
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    with Pdf.open(input_pdf) as pdf:
-        for entry in entries:
-            # Pydantic model ensures index is not None for level 1
-            idx = entry.index if entry.index is not None else 0
-            prefix = f"{idx:02d}_" if number else ""
-            safe_title = slugify_title(entry.title)
-            filename = f"{prefix}{safe_title}.pdf"
-            output_path = output_dir / filename
-
-            # Slicing: start_page is 1-based, end_page is inclusive
-            start = (entry.start_page or 1) - 1
-            end = entry.end_page if entry.end_page is not None else start + 1
-
-            new_pdf = Pdf.new()
-            try:
-                new_pdf.pages.extend(pdf.pages[start:end])
-                new_pdf.save(output_path)
-            finally:
-                new_pdf.close()
-            typer.echo(f"Created: {output_path}")
+    for output_path in outputs:
+        typer.echo(f"Created: {output_path}")
 
 
 def main(argv: list[str] | None = None) -> int:
