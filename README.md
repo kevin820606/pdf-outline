@@ -107,6 +107,13 @@ Hierarchy is defined by the `level` property.
 ]
 ```
 
+## Codex Skill
+
+The [pdf-outline skill](docs/skills/pdf-outline/SKILL.md) provides CLI workflows,
+manifest rules, output safeguards, and verification steps. Install it by linking
+`docs/skills/pdf-outline` into your Codex skills directory, then invoke
+`$pdf-outline` (for example: `使用 $pdf-outline 將這本 PDF 依第一層書籤拆章`).
+
 ## Development
 
 Run the full test suite:

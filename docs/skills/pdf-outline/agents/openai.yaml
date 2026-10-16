@@ -1,0 +1,4 @@
+interface:
+  display_name: "PDF Outline"
+  short_description: "使用 pdf-outline 合併 PDF、管理書籤並依目錄拆章"
+  default_prompt: "使用 $pdf-outline 處理指定 PDF 的書籤、合併或拆章需求，並核對輸出。"
